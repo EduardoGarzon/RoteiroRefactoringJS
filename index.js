@@ -1,5 +1,47 @@
-const { readFileSync } = require('fs');
-const { get } = require('http');
+let pecas;
+
+try {
+  const { readFileSync } = require('fs');
+  const { get } = require('http');
+
+  pecas = JSON.parse(readFileSync('./pecas.json'));
+  const faturas = JSON.parse(readFileSync('./faturas.json'));
+
+  const faturaStr = gerarFaturaStr(faturas, pecas);
+  console.log(faturaStr);
+
+} catch (error) {
+
+}
+
+fetch('./pecas.json')
+  .then(response => {
+    if (!response.ok) {
+      throw new Error('Erro ao carregar o arquivo pecas.json');
+    }
+    return response.json();
+  })
+  .then(pecasData => {
+    pecas = pecasData;
+    fetch('./faturas.json')
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Erro ao carregar o arquivo faturas.json');
+        }
+        return response.json();
+      })
+      .then(faturas => {
+        const faturaBody = document.getElementById("fatura");
+        const faturaHTML = gerarFaturaHTML(faturas, pecas);
+        faturaBody.innerHTML = faturaHTML;
+      })
+      .catch(error => {
+        console.error('Erro ao carregar faturas.json:', error);
+      });
+  })
+  .catch(error => {
+    console.error('Erro ao carregar pecas.json:', error);
+  });
 
 function gerarFaturaStr(fatura) {
   let faturaStr = `Fatura ${fatura.cliente}\n`;
@@ -14,7 +56,24 @@ function gerarFaturaStr(fatura) {
   return faturaStr;
 }
 
-// função extraída
+function gerarFaturaHTML(fatura, pecas) {
+  let faturaHTML = '';
+
+  const p = `<p>Fatura ${fatura.cliente}\n</p>`;
+  faturaHTML += p;
+
+  faturaHTML += "<ul>";
+  for (let apre of fatura.apresentacoes) {
+    faturaHTML += `<li>${getPeca(apre).nome}: ${formatarMoeda(calcularTotalApresentacao(apre))} (${apre.audiencia} assentos)</li>`;
+  }
+  faturaHTML += "</ul>";
+
+  faturaHTML += `<p>Valor total: ${formatarMoeda(calcularTotalFatura(fatura.apresentacoes))}</p>`;
+  faturaHTML += `<p>Créditos acumulados: ${calcularTotalCreditos(fatura.apresentacoes)}</p>`;
+
+  return faturaHTML;
+}
+
 function formatarMoeda(valor) {
   return new Intl.NumberFormat("pt-BR",
     {
@@ -47,12 +106,10 @@ function calcularTotalApresentacao(apre) {
   return total;
 }
 
-// funcao query
 function getPeca(apresentacao) {
   return pecas[apresentacao.id];
 }
 
-// função extraída
 function calcularCredito(apre) {
   let creditos = 0;
   creditos += Math.max(apre.audiencia - 30, 0);
@@ -78,7 +135,7 @@ function calcularTotalFatura(apresentacoes) {
   return totalfatura / 100;
 }
 
-const faturas = JSON.parse(readFileSync('./faturas.json'));
-const pecas = JSON.parse(readFileSync('./pecas.json'));
-const faturaStr = gerarFaturaStr(faturas, pecas);
-console.log(faturaStr);
+
+
+
+
