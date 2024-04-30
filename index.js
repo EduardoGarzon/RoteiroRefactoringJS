@@ -1,14 +1,16 @@
-let pecas, faturas;
+const { readFileSync } = require('fs');
 
-try {
-  const { readFileSync } = require('fs');
-  const { get } = require('http');
+// let pecas, faturas;
 
-  pecas = JSON.parse(readFileSync('./pecas.json'));
-  faturas = JSON.parse(readFileSync('./faturas.json'));
+// try {
+//   const { readFileSync } = require('fs');
+//   const { get } = require('http');
 
-} catch (error) {
-}
+//   pecas = JSON.parse(readFileSync('./pecas.json'));
+//   faturas = JSON.parse(readFileSync('./faturas.json'));
+
+// } catch (error) {
+// }
 
 // fetch('./pecas.json')
 //   .then(response => {
@@ -39,7 +41,23 @@ try {
 //     console.error('Erro ao carregar pecas.json:', error);
 //   });
 
+class Repositorio {
+  constructor() {
+    this.pecas = JSON.parse(readFileSync('./pecas.json'));
+  }
+
+  getPeca(apre) {
+    return this.pecas[apre.id];
+  }
+}
+
 class ServicoCalculoFatura {
+
+  constructor(repo) {
+    this.repo = repo;
+  }
+
+
   formatarMoeda(valor) {
     return new Intl.NumberFormat("pt-BR",
       {
@@ -51,23 +69,39 @@ class ServicoCalculoFatura {
   calcularTotalApresentacao(apre) {
     let total = 0;
 
-    switch (this.getPeca(apre).tipo) {
-      case "tragedia":
-        total = 40000;
-        if (apre.audiencia > 30) {
-          total += 1000 * (apre.audiencia - 30);
-        }
-        break;
-      case "comedia":
-        total = 30000;
-        if (apre.audiencia > 20) {
-          total += 10000 + 500 * (apre.audiencia - 20);
-        }
-        total += 300 * apre.audiencia;
-        break;
-      default:
-        throw new Error(`Peça desconhecia: ${this.getPeca(apre).tipo}`);
+    if (this.repo.getPeca(apre).tipo === "comedia") {
+      total = 30000;
+      if (apre.audiencia > 20) {
+        total += 10000 + 500 * (apre.audiencia - 20);
+      }
+      total += 300 * apre.audiencia;
+    } else if (this.repo.getPeca(apre).tipo === "tragedia") {
+      total = 40000;
+      if (apre.audiencia > 30) {
+        total += 1000 * (apre.audiencia - 30);
+      }
+    } else {
+      throw new Error(`Peça desconhecia: ${this.getPeca(apre).tipo}`);
     }
+
+
+    // switch (this.getPeca(apre).tipo) {
+    //   case "tragedia":
+    //     total = 40000;
+    //     if (apre.audiencia > 30) {
+    //       total += 1000 * (apre.audiencia - 30);
+    //     }
+    //     break;
+    //   case "comedia":
+    //     total = 30000;
+    //     if (apre.audiencia > 20) {
+    //       total += 10000 + 500 * (apre.audiencia - 20);
+    //     }
+    //     total += 300 * apre.audiencia;
+    //     break;
+    //   default:
+    //     throw new Error(`Peça desconhecia: ${this.getPeca(apre).tipo}`);
+    // }
 
     return total;
   }
@@ -79,7 +113,7 @@ class ServicoCalculoFatura {
   calcularCredito(apre) {
     let creditos = 0;
     creditos += Math.max(apre.audiencia - 30, 0);
-    if (this.getPeca(apre).tipo === "comedia")
+    if (this.repo.getPeca(apre).tipo === "comedia")
       creditos += Math.floor(apre.audiencia / 5);
     return creditos;
   }
@@ -102,16 +136,16 @@ class ServicoCalculoFatura {
   }
 }
 
-const calc = new ServicoCalculoFatura();
-
-const faturaStr = gerarFaturaStr(faturas, pecas, calc);
+const faturas = JSON.parse(readFileSync('./faturas.json'));
+const calc = new ServicoCalculoFatura(new Repositorio());
+const faturaStr = gerarFaturaStr(faturas, calc);
 console.log(faturaStr);
 
-function gerarFaturaStr(fatura, pecas, calc) {
+function gerarFaturaStr(fatura, calc) {
   let faturaStr = `Fatura ${fatura.cliente}\n`;
 
   for (let apre of fatura.apresentacoes) {
-    faturaStr += `  ${calc.getPeca(apre).nome}: ${calc.formatarMoeda(calc.calcularTotalApresentacao(apre))} (${apre.audiencia} assentos)\n`;
+    faturaStr += `  ${calc.repo.getPeca(apre).nome}: ${calc.formatarMoeda(calc.calcularTotalApresentacao(apre))} (${apre.audiencia} assentos)\n`;
   }
 
   faturaStr += `Valor total: ${calc.formatarMoeda(calc.calcularTotalFatura(fatura.apresentacoes))}\n`;
